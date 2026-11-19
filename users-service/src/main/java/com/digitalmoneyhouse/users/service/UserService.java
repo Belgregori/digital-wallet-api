@@ -1,29 +1,43 @@
 package com.digitalmoneyhouse.users.service;
 
-import com.digitalmoneyhouse.users.dto.UserCredentialsResponse;
 import com.digitalmoneyhouse.users.dto.UserRegisterRequest;
 import com.digitalmoneyhouse.users.dto.UserResponse;
 import com.digitalmoneyhouse.users.entity.Account;
 import com.digitalmoneyhouse.users.entity.User;
-import com.digitalmoneyhouse.users.exception.ResourceNotFoundException;
+import com.digitalmoneyhouse.users.exception.UnauthorizedException;
 import com.digitalmoneyhouse.users.exception.ValidationException;
 import com.digitalmoneyhouse.users.repository.AccountRepository;
 import com.digitalmoneyhouse.users.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 public class UserService {
 
     private static final int MAX_GENERATION_ATTEMPTS = 10;
+    private static final String INVALID_CREDENTIALS = "Email o contraseña incorrectos";
 
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final AccountIdentifierGenerator identifierGenerator;
+    private final PasswordEncoder passwordEncoder;
+    private final String dummyHash;
+
+    public UserService(
+            UserRepository userRepository,
+            AccountRepository accountRepository,
+            AccountIdentifierGenerator identifierGenerator,
+            PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.accountRepository = accountRepository;
+        this.identifierGenerator = identifierGenerator;
+        this.passwordEncoder = passwordEncoder;
+        this.dummyHash = passwordEncoder.encode("dummy-password");
+    }
 
     @Transactional
     public UserResponse register(UserRegisterRequest request) {
@@ -43,7 +57,7 @@ public class UserService {
         user.setDni(dni);
         user.setEmail(email);
         user.setPhoneNumber(request.phoneNumber().trim());
-        user.setPassword(request.password());
+        user.setPassword(passwordEncoder.encode(request.password()));
 
         Account account = new Account();
         account.setCvu(uniqueCvu());
@@ -56,14 +70,19 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserCredentialsResponse findCredentialsByEmail(String email) {
+    public String verifyCredentials(String email, String rawPassword) {
         String normalized = email == null ? "" : email.trim().toLowerCase();
-        if (normalized.isBlank()) {
-            throw new ValidationException("El email es obligatorio");
+        if (normalized.isBlank() || rawPassword == null || rawPassword.isBlank()) {
+            throw new ValidationException("El email y la contraseña son obligatorios");
         }
-        User user = userRepository.findByEmailIgnoreCase(normalized)
-                .orElseThrow(() -> new ResourceNotFoundException("El usuario no existe"));
-        return new UserCredentialsResponse(user.getEmail(), user.getPassword());
+
+        Optional<User> user = userRepository.findByEmailIgnoreCase(normalized);
+        String hash = user.map(User::getPassword).orElse(dummyHash);
+        boolean matches = passwordEncoder.matches(rawPassword, hash);
+        if (user.isEmpty() || !matches) {
+            throw new UnauthorizedException(INVALID_CREDENTIALS);
+        }
+        return user.get().getEmail();
     }
 
     private String uniqueCvu() {

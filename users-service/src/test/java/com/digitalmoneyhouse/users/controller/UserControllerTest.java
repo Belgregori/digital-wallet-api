@@ -54,7 +54,7 @@ class UserControllerTest {
                                   "email": "ana@example.com",
                                   "dni": "12345678",
                                   "phoneNumber": "1122334455",
-                                  "password": "secreta"
+                                  "password": "secreta12"
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -119,6 +119,25 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.message").value("No autorizado"));
     }
 
+    @Test
+    void registerReturnsBadRequestWhenPasswordIsTooShort() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName": "Ana",
+                                  "lastName": "Perez",
+                                  "email": "ana@example.com",
+                                  "dni": "12345678",
+                                  "phoneNumber": "1122334455",
+                                  "password": "corta"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("password")));
+    }
+
     private String validBody() {
         return """
                 {
@@ -127,7 +146,7 @@ class UserControllerTest {
                   "email": "ana@example.com",
                   "dni": "12345678",
                   "phoneNumber": "1122334455",
-                  "password": "secreta"
+                  "password": "secreta12"
                 }
                 """;
     }

@@ -1,3 +1,6 @@
+# Sprint 1: /users/register, /auth/login y /user/logout son públicos.
+# /internal/** no se enruta. La validación centralizada del JWT en este gateway
+# queda para los endpoints protegidos de los próximos sprints (docs/arquitectura.md).
 server:
   port: 8080
 

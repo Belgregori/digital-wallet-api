@@ -13,8 +13,11 @@ eureka:
     fetch-registry: true
 
 jwt:
-  secret: digital-money-house-auth-service-jwt-secret-key
-  expiration-ms: 86400000
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+internal:
+  api-key: ${INTERNAL_API_KEY}
 
 springdoc:
   swagger-ui:

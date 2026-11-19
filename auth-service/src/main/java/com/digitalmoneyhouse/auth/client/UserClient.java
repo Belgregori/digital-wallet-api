@@ -1,13 +1,14 @@
 package com.digitalmoneyhouse.auth.client;
 
-import com.digitalmoneyhouse.auth.dto.UserCredentialsResponse;
+import com.digitalmoneyhouse.auth.dto.CredentialVerificationRequest;
+import com.digitalmoneyhouse.auth.dto.VerifiedUserResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(name = "users-service")
 public interface UserClient {
 
-    @GetMapping("/internal/users")
-    UserCredentialsResponse findByEmail(@RequestParam("email") String email);
+    @PostMapping("/internal/credentials/verify")
+    VerifiedUserResponse verify(@RequestBody CredentialVerificationRequest request);
 }

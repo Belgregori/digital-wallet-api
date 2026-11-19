@@ -2,7 +2,7 @@ package com.digitalmoneyhouse.auth.controller;
 
 import com.digitalmoneyhouse.auth.dto.LoginResponse;
 import com.digitalmoneyhouse.auth.exception.GlobalExceptionHandler;
-import com.digitalmoneyhouse.auth.exception.ResourceNotFoundException;
+import com.digitalmoneyhouse.auth.exception.UnauthorizedException;
 import com.digitalmoneyhouse.auth.exception.ValidationException;
 import com.digitalmoneyhouse.auth.service.AuthService;
 import com.digitalmoneyhouse.auth.service.JwtService;
@@ -50,7 +50,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"ana@example.com","password":"secreta"}
+                                {"email":"ana@example.com","password":"secreta12"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("jwt-token"))
@@ -58,30 +58,39 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginReturns404WhenUserDoesNotExist() throws Exception {
-        when(authService.login(any())).thenThrow(new ResourceNotFoundException("El usuario no existe"));
+    void loginReturns401WhenCredentialsAreWrong() throws Exception {
+        when(authService.login(any())).thenThrow(new UnauthorizedException("Email o contraseña incorrectos"));
 
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"ana@example.com","password":"secreta"}
+                                {"email":"ana@example.com","password":"secreta12"}
                                 """))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.message").value("El usuario no existe"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Email o contraseña incorrectos"));
     }
 
     @Test
-    void loginReturns400WhenPasswordIsWrong() throws Exception {
-        when(authService.login(any())).thenThrow(new ValidationException("La contraseña es incorrecta"));
-
+    void loginReturns400WhenEmailIsInvalid() throws Exception {
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"ana@example.com","password":"otra"}
+                                {"email":"no-es-email","password":"secreta12"}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("email")));
+    }
+
+    @Test
+    void logoutReturns401WhenTokenIsExpired() throws Exception {
+        doThrow(new UnauthorizedException("El token está vencido"))
+                .when(authService).logout("Bearer vencido");
+
+        mockMvc.perform(post("/user/logout").header("Authorization", "Bearer vencido"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("El token está vencido"));
     }
 
     @Test

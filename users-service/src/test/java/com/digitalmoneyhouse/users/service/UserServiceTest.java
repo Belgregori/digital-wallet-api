@@ -1,26 +1,29 @@
 package com.digitalmoneyhouse.users.service;
 
-import com.digitalmoneyhouse.users.dto.UserCredentialsResponse;
 import com.digitalmoneyhouse.users.dto.UserRegisterRequest;
 import com.digitalmoneyhouse.users.dto.UserResponse;
 import com.digitalmoneyhouse.users.entity.User;
-import com.digitalmoneyhouse.users.exception.ResourceNotFoundException;
+import com.digitalmoneyhouse.users.exception.UnauthorizedException;
 import com.digitalmoneyhouse.users.exception.ValidationException;
 import com.digitalmoneyhouse.users.repository.AccountRepository;
 import com.digitalmoneyhouse.users.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,11 +40,16 @@ class UserServiceTest {
     @Mock
     private AccountIdentifierGenerator identifierGenerator;
 
-    @InjectMocks
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private UserService userService;
 
+    @BeforeEach
+    void setUp() {
+        userService = new UserService(userRepository, accountRepository, identifierGenerator, passwordEncoder);
+    }
+
     @Test
-    void registerSavesUserAndAccountAndOmitsPasswordFromResponse() {
+    void registerSavesUserAndAccountAndStoresBcryptHash() {
         when(identifierGenerator.generateCvu()).thenReturn("1234567890123456789012");
         when(identifierGenerator.generateAlias()).thenReturn("sol.luna.rio");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -63,7 +71,9 @@ class UserServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         User saved = captor.getValue();
-        assertEquals("secreta", saved.getPassword());
+        assertTrue(saved.getPassword().startsWith("$2a$"));
+        assertFalse(saved.getPassword().contains("secreta12"));
+        assertTrue(passwordEncoder.matches("secreta12", saved.getPassword()));
         assertSame(saved, saved.getAccount().getUser());
     }
 
@@ -77,26 +87,35 @@ class UserServiceTest {
     }
 
     @Test
-    void findCredentialsReturnsStoredPassword() {
+    void verifyCredentialsAcceptsMatchingPassword() {
         User user = new User();
         user.setEmail("ana@example.com");
-        user.setPassword("secreta");
+        user.setPassword(passwordEncoder.encode("secreta12"));
         when(userRepository.findByEmailIgnoreCase("ana@example.com")).thenReturn(Optional.of(user));
 
-        UserCredentialsResponse credentials = userService.findCredentialsByEmail(" Ana@Example.com ");
-
-        assertEquals("ana@example.com", credentials.email());
-        assertEquals("secreta", credentials.password());
+        assertEquals("ana@example.com", userService.verifyCredentials(" Ana@Example.com ", "secreta12"));
     }
 
     @Test
-    void findCredentialsThrowsNotFoundWhenEmailDoesNotExist() {
-        when(userRepository.findByEmailIgnoreCase("ana@example.com")).thenReturn(Optional.empty());
+    void verifyCredentialsRejectsUnknownUserAndWrongPasswordWithTheSameMessage() {
+        User user = new User();
+        user.setEmail("ana@example.com");
+        user.setPassword(passwordEncoder.encode("secreta12"));
+        when(userRepository.findByEmailIgnoreCase("ana@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("otro@example.com")).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> userService.findCredentialsByEmail("ana@example.com"));
+        UnauthorizedException wrongPassword = assertThrows(
+                UnauthorizedException.class,
+                () -> userService.verifyCredentials("ana@example.com", "otraClave1"));
+        UnauthorizedException unknownUser = assertThrows(
+                UnauthorizedException.class,
+                () -> userService.verifyCredentials("otro@example.com", "secreta12"));
+
+        assertEquals("Email o contraseña incorrectos", wrongPassword.getMessage());
+        assertEquals(wrongPassword.getMessage(), unknownUser.getMessage());
     }
 
     private UserRegisterRequest request() {
-        return new UserRegisterRequest(" Ana ", "Perez", " Ana@Example.com ", "12345678", "1122334455", "secreta");
+        return new UserRegisterRequest(" Ana ", "Perez", " Ana@Example.com ", "12345678", "1122334455", "secreta12");
     }
 }

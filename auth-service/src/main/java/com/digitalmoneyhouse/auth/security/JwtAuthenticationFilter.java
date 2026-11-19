@@ -44,17 +44,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7).trim();
-            if (tokenBlacklist.isBlacklisted(token) || !jwtService.hasValidSignature(token)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().write(
-                        "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Token inválido\"}");
+            if (tokenBlacklist.isBlacklisted(token)) {
+                writeUnauthorized(response, "El token no es válido");
                 return;
+            }
+            switch (jwtService.inspect(token)) {
+                case EXPIRED -> {
+                    writeUnauthorized(response, "El token está vencido");
+                    return;
+                }
+                case INVALID -> {
+                    writeUnauthorized(response, "El token no es válido");
+                    return;
+                }
+                case VALID -> {
+                    // sigue el filtro
+                }
             }
             String email = jwtService.extractEmail(token);
             var authentication = new UsernamePasswordAuthenticationToken(email, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write(
+                "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"" + message + "\"}");
     }
 }

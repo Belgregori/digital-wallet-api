@@ -1,6 +1,7 @@
 package com.digitalmoneyhouse.auth.client;
 
-import com.digitalmoneyhouse.auth.exception.ResourceNotFoundException;
+import com.digitalmoneyhouse.auth.dto.CredentialVerificationRequest;
+import com.digitalmoneyhouse.auth.exception.UnauthorizedException;
 import feign.FeignException;
 import feign.Request;
 import feign.RequestTemplate;
@@ -27,30 +28,31 @@ class FeignUserDirectoryTest {
     private FeignUserDirectory userDirectory;
 
     @Test
-    void mapsFeignNotFoundToResourceNotFound() {
-        when(userClient.findByEmail("ana@example.com")).thenThrow(notFound());
+    void mapsFeignUnauthorizedToGenericCredentialsError() {
+        when(userClient.verify(new CredentialVerificationRequest("ana@example.com", "secreta12")))
+                .thenThrow(unauthorized());
 
-        ResourceNotFoundException exception = assertThrows(
-                ResourceNotFoundException.class,
-                () -> userDirectory.findByEmail("ana@example.com"));
+        UnauthorizedException exception = assertThrows(
+                UnauthorizedException.class,
+                () -> userDirectory.authenticate("ana@example.com", "secreta12"));
 
-        assertEquals("El usuario no existe", exception.getMessage());
+        assertEquals("Email o contraseña incorrectos", exception.getMessage());
     }
 
-    private FeignException notFound() {
+    private FeignException unauthorized() {
         Request request = Request.create(
-                Request.HttpMethod.GET,
-                "/internal/users",
+                Request.HttpMethod.POST,
+                "/internal/credentials/verify",
                 Map.of(),
                 null,
                 new RequestTemplate());
         Response response = Response.builder()
-                .status(404)
-                .reason("Not Found")
+                .status(401)
+                .reason("Unauthorized")
                 .request(request)
                 .headers(Map.of())
                 .body(new byte[0])
                 .build();
-        return FeignException.errorStatus("UserClient#findByEmail", response);
+        return FeignException.errorStatus("UserClient#verify", response);
     }
 }

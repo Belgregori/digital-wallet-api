@@ -3,6 +3,7 @@ package com.digitalmoneyhouse.auth.controller;
 import com.digitalmoneyhouse.auth.dto.LoginRequest;
 import com.digitalmoneyhouse.auth.dto.LoginResponse;
 import com.digitalmoneyhouse.auth.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,7 +21,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 }

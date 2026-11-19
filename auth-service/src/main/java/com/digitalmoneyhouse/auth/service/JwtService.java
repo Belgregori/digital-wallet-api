@@ -1,7 +1,7 @@
 package com.digitalmoneyhouse.auth.service;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -14,6 +14,12 @@ import java.util.Date;
 
 @Service
 public class JwtService {
+
+    public enum TokenStatus {
+        VALID,
+        EXPIRED,
+        INVALID
+    }
 
     private final Key key;
     private final long expirationMs;
@@ -35,26 +41,22 @@ public class JwtService {
                 .compact();
     }
 
-    public boolean hasValidSignature(String token) {
+    public TokenStatus inspect(String token) {
         try {
             parseClaims(token);
-            return true;
+            return TokenStatus.VALID;
         } catch (ExpiredJwtException exception) {
-            return true;
-        } catch (RuntimeException exception) {
-            return false;
+            return TokenStatus.EXPIRED;
+        } catch (JwtException | IllegalArgumentException exception) {
+            return TokenStatus.INVALID;
         }
     }
 
     public String extractEmail(String token) {
-        try {
-            return parseClaims(token).getSubject();
-        } catch (ExpiredJwtException exception) {
-            return exception.getClaims().getSubject();
-        }
+        return parseClaims(token).getSubject();
     }
 
-    private Claims parseClaims(String token) {
+    private io.jsonwebtoken.Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()

@@ -3,17 +3,17 @@ package com.digitalmoneyhouse.auth.service;
 import com.digitalmoneyhouse.auth.client.UserDirectory;
 import com.digitalmoneyhouse.auth.dto.LoginRequest;
 import com.digitalmoneyhouse.auth.dto.LoginResponse;
-import com.digitalmoneyhouse.auth.dto.UserCredentialsResponse;
+import com.digitalmoneyhouse.auth.exception.UnauthorizedException;
 import com.digitalmoneyhouse.auth.exception.ValidationException;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.util.regex.Pattern;
 
 @Service
 public class AuthService {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final Pattern EMAIL = Pattern.compile("^[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
 
     private final UserDirectory userDirectory;
     private final JwtService jwtService;
@@ -30,24 +30,25 @@ public class AuthService {
                 || request.password() == null || request.password().isBlank()) {
             throw new ValidationException("El email y la contraseña son obligatorios");
         }
-        if (!request.email().contains("@")) {
+        if (request.password().length() < 8 || request.password().length() > 72) {
+            throw new ValidationException("La contraseña debe tener entre 8 y 72 caracteres");
+        }
+        String email = request.email().trim().toLowerCase();
+        if (!EMAIL.matcher(email).matches()) {
             throw new ValidationException("El email no es válido");
         }
 
-        String email = request.email().trim().toLowerCase();
-        UserCredentialsResponse credentials = userDirectory.findByEmail(email);
-        if (!passwordMatches(request.password(), credentials.password())) {
-            throw new ValidationException("La contraseña es incorrecta");
-        }
-        return new LoginResponse(jwtService.generateToken(credentials.email()));
+        String verifiedEmail = userDirectory.authenticate(email, request.password());
+        return new LoginResponse(jwtService.generateToken(verifiedEmail));
     }
 
     public void logout(String authorizationHeader) {
         String token = extractToken(authorizationHeader);
-        if (!jwtService.hasValidSignature(token)) {
-            throw new ValidationException("El token no es válido");
+        switch (jwtService.inspect(token)) {
+            case VALID -> tokenBlacklist.invalidate(token);
+            case EXPIRED -> throw new UnauthorizedException("El token está vencido");
+            case INVALID -> throw new UnauthorizedException("El token no es válido");
         }
-        tokenBlacklist.invalidate(token);
     }
 
     private String extractToken(String authorizationHeader) {
@@ -59,14 +60,5 @@ public class AuthService {
             throw new ValidationException("El token es obligatorio");
         }
         return token;
-    }
-
-    private boolean passwordMatches(String rawPassword, String storedPassword) {
-        if (storedPassword == null) {
-            return false;
-        }
-        return MessageDigest.isEqual(
-                rawPassword.getBytes(StandardCharsets.UTF_8),
-                storedPassword.getBytes(StandardCharsets.UTF_8));
     }
 }
