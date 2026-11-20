@@ -2,9 +2,13 @@ package com.digitalmoneyhouse.users.service;
 
 import com.digitalmoneyhouse.users.client.AccountProvisioning;
 import com.digitalmoneyhouse.users.dto.AccountResponse;
+import com.digitalmoneyhouse.users.dto.UserProfileResponse;
 import com.digitalmoneyhouse.users.dto.UserRegisterRequest;
 import com.digitalmoneyhouse.users.dto.UserResponse;
+import com.digitalmoneyhouse.users.dto.UserUpdateRequest;
 import com.digitalmoneyhouse.users.entity.User;
+import com.digitalmoneyhouse.users.exception.ForbiddenException;
+import com.digitalmoneyhouse.users.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.users.exception.UnauthorizedException;
 import com.digitalmoneyhouse.users.exception.ValidationException;
 import com.digitalmoneyhouse.users.repository.UserRepository;
@@ -59,6 +63,20 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public UserProfileResponse profile(Long id, String email) {
+        return toProfile(ownedUser(id, email));
+    }
+
+    @Transactional
+    public UserProfileResponse update(Long id, String email, UserUpdateRequest request) {
+        User user = ownedUser(id, email);
+        user.setFirstName(request.firstName().trim());
+        user.setLastName(request.lastName().trim());
+        user.setPhoneNumber(request.phoneNumber().trim());
+        return toProfile(userRepository.save(user));
+    }
+
+    @Transactional(readOnly = true)
     public String verifyCredentials(String email, String rawPassword) {
         String normalized = email == null ? "" : email.trim().toLowerCase();
         if (normalized.isBlank() || rawPassword == null || rawPassword.isBlank()) {
@@ -72,5 +90,27 @@ public class UserService {
             throw new UnauthorizedException(INVALID_CREDENTIALS);
         }
         return user.get().getEmail();
+    }
+
+    private User ownedUser(Long id, String email) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario no existe"));
+        if (!user.getEmail().equalsIgnoreCase(email)) {
+            throw new ForbiddenException("No tenés permiso para ver este usuario");
+        }
+        return user;
+    }
+
+    private UserProfileResponse toProfile(User user) {
+        AccountResponse account = accountProvisioning.findByUserId(user.getId());
+        return new UserProfileResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getDni(),
+                user.getEmail(),
+                user.getPhoneNumber(),
+                account.cvu(),
+                account.alias());
     }
 }

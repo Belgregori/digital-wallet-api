@@ -3,6 +3,7 @@ package com.digitalmoneyhouse.account.service;
 import com.digitalmoneyhouse.account.dto.AccountDetailsResponse;
 import com.digitalmoneyhouse.account.dto.TransactionResponse;
 import com.digitalmoneyhouse.account.entity.Account;
+import com.digitalmoneyhouse.account.exception.ConflictException;
 import com.digitalmoneyhouse.account.exception.ForbiddenException;
 import com.digitalmoneyhouse.account.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.account.exception.ValidationException;
@@ -68,6 +69,24 @@ public class AccountService {
             return transactions;
         }
         return transactions.subList(0, limit);
+    }
+
+    @Transactional
+    public AccountDetailsResponse updateAlias(Long id, String email, String alias) {
+        Account account = ownedAccount(id, email);
+        String normalized = alias.trim().toLowerCase();
+        if (accountRepository.existsByAliasAndIdNot(normalized, account.getId())) {
+            throw new ConflictException("El alias ya está en uso");
+        }
+        account.setAlias(normalized);
+        return AccountDetailsResponse.from(accountRepository.save(account));
+    }
+
+    @Transactional(readOnly = true)
+    public AccountDetailsResponse findByUserId(Long userId) {
+        return accountRepository.findByUserId(userId)
+                .map(AccountDetailsResponse::from)
+                .orElseThrow(() -> new ResourceNotFoundException("La cuenta no existe"));
     }
 
     private Account ownedAccount(Long id, String email) {

@@ -1,11 +1,15 @@
 package com.digitalmoneyhouse.account.controller;
 
 import com.digitalmoneyhouse.account.dto.AccountDetailsResponse;
+import com.digitalmoneyhouse.account.dto.AliasUpdateRequest;
 import com.digitalmoneyhouse.account.dto.TransactionResponse;
 import com.digitalmoneyhouse.account.security.CurrentUser;
 import com.digitalmoneyhouse.account.service.AccountService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,5 +38,10 @@ public class AccountController {
             @PathVariable Long id,
             @RequestParam(required = false) Integer limit) {
         return accountService.listTransactions(id, currentUser.email(), limit);
+    }
+
+    @PatchMapping("/{id}")
+    public AccountDetailsResponse updateAlias(@PathVariable Long id, @Valid @RequestBody AliasUpdateRequest request) {
+        return accountService.updateAlias(id, currentUser.email(), request.alias());
     }
 }

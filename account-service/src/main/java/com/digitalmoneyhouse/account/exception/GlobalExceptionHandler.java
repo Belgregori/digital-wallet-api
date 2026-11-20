@@ -28,6 +28,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, exception.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException exception) {
+        return error(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidation(ValidationException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());

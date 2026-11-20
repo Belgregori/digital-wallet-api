@@ -2,6 +2,7 @@ package com.digitalmoneyhouse.users.controller;
 
 import com.digitalmoneyhouse.users.exception.GlobalExceptionHandler;
 import com.digitalmoneyhouse.users.security.InternalApiKeyFilter;
+import com.digitalmoneyhouse.users.security.JwtTokenService;
 import com.digitalmoneyhouse.users.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(InternalCredentialController.class)
 @Import({GlobalExceptionHandler.class, InternalApiKeyFilter.class})
-@TestPropertySource(properties = "internal.api-key=test-internal-key")
+@TestPropertySource(properties = {
+        "internal.api-key=test-internal-key",
+        "jwt.secret=digital-money-house-auth-service-jwt-secret-key"
+})
 class InternalCredentialControllerTest {
 
     @Autowired
@@ -30,6 +34,9 @@ class InternalCredentialControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private JwtTokenService jwtTokenService;
 
     @Test
     void rejectsCallsWithoutInternalToken() throws Exception {

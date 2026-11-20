@@ -3,6 +3,8 @@ package com.digitalmoneyhouse.users.service;
 import com.digitalmoneyhouse.users.client.AccountProvisioning;
 import com.digitalmoneyhouse.users.dto.AccountResponse;
 import com.digitalmoneyhouse.users.dto.UserRegisterRequest;
+import com.digitalmoneyhouse.users.dto.UserUpdateRequest;
+import com.digitalmoneyhouse.users.exception.ForbiddenException;
 import com.digitalmoneyhouse.users.dto.UserResponse;
 import com.digitalmoneyhouse.users.entity.User;
 import com.digitalmoneyhouse.users.exception.UnauthorizedException;
@@ -70,6 +72,30 @@ class UserServiceTest {
     }
 
     @Test
+    void profileReturnsCvuAndAliasAndUpdateKeepsThem() {
+        User user = savedUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.save(org.mockito.ArgumentMatchers.any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountProvisioning.findByUserId(1L)).thenReturn(
+                new AccountResponse(2L, "1234567890123456789012", "sol.luna.rio", new BigDecimal("0.00")));
+
+        var profile = userService.profile(1L, "ana@example.com");
+        var updated = userService.update(1L, "ana@example.com", new UserUpdateRequest("Ana Maria", "Perez", "1199887766"));
+
+        assertEquals("sol.luna.rio", profile.alias());
+        assertEquals("1234567890123456789012", profile.cvu());
+        assertEquals("Ana Maria", updated.firstName());
+        assertEquals("sol.luna.rio", updated.alias());
+    }
+
+    @Test
+    void profileRejectsAnotherUser() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(savedUser()));
+
+        assertThrows(ForbiddenException.class, () -> userService.profile(1L, "otro@example.com"));
+    }
+
+    @Test
     void registerRejectsDuplicateEmail() {
         when(userRepository.existsByEmailIgnoreCase("ana@example.com")).thenReturn(true);
 
@@ -105,6 +131,18 @@ class UserServiceTest {
 
         assertEquals("Email o contraseña incorrectos", wrongPassword.getMessage());
         assertEquals(wrongPassword.getMessage(), unknownUser.getMessage());
+    }
+
+    private User savedUser() {
+        User user = new User();
+        user.setId(1L);
+        user.setFirstName("Ana");
+        user.setLastName("Perez");
+        user.setDni("12345678");
+        user.setEmail("ana@example.com");
+        user.setPhoneNumber("1122334455");
+        user.setPassword("hash");
+        return user;
     }
 
     private UserRegisterRequest request() {

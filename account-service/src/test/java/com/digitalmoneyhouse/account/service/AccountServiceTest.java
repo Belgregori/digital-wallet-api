@@ -2,6 +2,7 @@ package com.digitalmoneyhouse.account.service;
 
 import com.digitalmoneyhouse.account.entity.Account;
 import com.digitalmoneyhouse.account.entity.Transaction;
+import com.digitalmoneyhouse.account.exception.ConflictException;
 import com.digitalmoneyhouse.account.exception.ForbiddenException;
 import com.digitalmoneyhouse.account.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.account.repository.AccountRepository;
@@ -87,6 +88,14 @@ class AccountServiceTest {
 
         assertEquals(List.of(3L, 2L, 1L), all.stream().map(item -> item.id()).toList());
         assertEquals("mas nueva", latest.get(0).description());
+    }
+
+    @Test
+    void updateAliasRejectsATakenAlias() {
+        when(accountRepository.findById(8L)).thenReturn(Optional.of(account()));
+        when(accountRepository.existsByAliasAndIdNot("rio.mar.sol", 8L)).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> accountService.updateAlias(8L, "ana@example.com", "rio.mar.sol"));
     }
 
     @Test
