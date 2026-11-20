@@ -70,6 +70,15 @@ cd users-service
 mvn test
 cd ..\auth-service
 mvn test
+cd ..\account-service
+mvn test
+```
+
+Con los cinco servicios levantados, la suite de smoke contra el gateway está en `smoke-tests`:
+
+```powershell
+cd smoke-tests
+mvn test -Dsmoke=true
 ```
 
 ## Servicios
@@ -78,9 +87,9 @@ mvn test
 |---|---|---|
 | `eureka-server` | 8761 | Registro. No se registra a sí mismo. |
 | `api-gateway` | 8080 | Enruta `/users/**` a users, `/auth/**` y `/user/logout` a auth. No publica `/internal/**`. |
-| `users-service` | 8081 | `POST /users/register`. Crea el usuario y la cuenta (CVU de 22 dígitos y alias de 3 palabras). Base `digital_wallet_users`. |
+| `users-service` | 8081 | `POST /users/register`, `GET /users/{id}` y `PUT /users/{id}`. Base `digital_wallet_users`. |
 | `auth-service` | 8082 | `POST /auth/login` y `POST /user/logout`. JWT y blacklist en memoria. |
-| `account-service` | 8083 | Esqueleto registrado en Eureka, sin endpoints de negocio. Base `digital_wallet_accounts`. |
+| `account-service` | 8083 | Cuentas, saldo, alias, movimientos y tarjetas. Base `digital_wallet_accounts`. |
 
 Swagger UI, en users, auth y account: `http://localhost:<puerto>/swagger-ui/index.html`.
 
@@ -88,7 +97,7 @@ El tráfico de la aplicación entra por el gateway (`http://localhost:8080`).
 
 ## Cuentas
 
-En el Sprint 1 la identidad de la cuenta (CVU, alias y vínculo con el usuario) vive en `users-service`, en la misma transacción del registro. `account-service` queda para las operaciones financieras del Sprint 2 (saldo, movimientos y tarjetas) y va a referenciar el id de cuenta ya creado. El detalle está en [docs/arquitectura.md](docs/arquitectura.md).
+Al registrarse, `users-service` pide a `account-service` la cuenta (CVU, alias y saldo inicial). El saldo, los movimientos, el alias y las tarjetas se consultan en `account-service`. El perfil (`GET /users/{id}`) junta los datos personales con el CVU y el alias. El detalle está en [docs/arquitectura.md](docs/arquitectura.md).
 
 ## Documentación
 

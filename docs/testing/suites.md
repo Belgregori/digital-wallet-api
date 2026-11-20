@@ -11,7 +11,11 @@ Camino mínimo para decir que el Sprint 1 responde.
 | SMK-01 | Registro 201, sin contraseña, con CVU y alias | Manual. El test `registerSavesUserAndAccountAndStoresBcryptHash` cubre la forma de la respuesta y el hash. |
 | SMK-02 | Login 200 con token | Manual. El test `loginReturnsJwtWhenCredentialsMatch` cubre la emisión del token. |
 | SMK-03 | Logout 200 | Manual. El test `logoutStoresTokenInBlacklist` cubre la invalidación. |
-| SMK-04 | Swagger en 8081, 8082 y 8083 | Manual, contra los servicios en marcha. |
+| SMK-04 | Swagger en 8081, 8082 y 8083 | Manual y `SprintSmokeTest` si los puertos responden. |
+| SMK-05 | Saldo de la cuenta con token | `SprintSmokeTest` con `mvn test -Dsmoke=true` y los servicios levantados. |
+| SMK-06 | Movimientos, el más reciente primero, límite 5 | `SprintSmokeTest` y `AccountServiceTest`. |
+| SMK-07 | Perfil con CVU y alias | `SprintSmokeTest` y `UserControllerTest`. |
+| SMK-08 | Alta, asociación, listado, detalle y baja de tarjeta | `SprintSmokeTest` y `CardServiceTest`. |
 
 ## Regresión
 
@@ -28,6 +32,12 @@ Reglas que ya fallaron o que no pueden volver atrás.
 | REG-07 | CVU de 22 dígitos y alias de tres palabras | Test de registro. La unicidad entre tres altas queda para la pasada manual. |
 | REG-08 | Error 500 sin filtrar secretos | Solo manual, con el servicio caído. |
 | REG-09 | La columna `password` es un hash BCrypt | Test de registro. La lectura directa en MySQL queda para la pasada manual. |
+| REG-10 | Cuenta sin token o con token vencido | Manual. El filtro del gateway y de account cubren el 403. |
+| REG-11 | Cuenta de otro usuario | `AccountServiceTest.getByIdRejectsAnotherUser`. |
+| REG-12 | Id no numérico | `AccountControllerTest.returns400WhenIdIsNotNumeric`. |
+| REG-13 | Edición de perfil y alias | `UserServiceTest` y `AccountServiceTest.updateAliasRejectsATakenAlias`. |
+| REG-14 | Tarjeta asociada a otra cuenta y tarjeta inexistente | `CardServiceTest`. |
+| REG-15 | Error 500 con account-service caído | Solo manual. |
 
 ## Evidencia automática
 

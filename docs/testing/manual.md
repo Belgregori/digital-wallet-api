@@ -1,6 +1,6 @@
 # Testing manual
 
-Casos para ejecutar contra el gateway `http://localhost:8080`, con Eureka y los servicios del Sprint 1 en marcha. Las variables `DB_PASSWORD`, `JWT_SECRET` e `INTERNAL_API_KEY` tienen que estar definidas.
+Casos para ejecutar contra el gateway `http://localhost:8080`, con Eureka y los servicios en marcha. Las variables `DB_PASSWORD`, `JWT_SECRET` e `INTERNAL_API_KEY` tienen que estar definidas, con el mismo valor en users, auth y account.
 
 Los ids de smoke y regresión se agrupan en [suites.md](suites.md).
 
@@ -83,3 +83,64 @@ Los ids de smoke y regresión se agrupan en [suites.md](suites.md).
 
 1. Después de SMK-01, consultar la columna `password` del usuario en `digital_wallet_users`.
 2. Esperado: el valor empieza con `$2a$` y no contiene la contraseña enviada.
+
+## Sprint 2
+
+El token sale de SMK-02. Los id salen de la respuesta del registro: `id` del usuario y `account.id` de la cuenta.
+
+### SMK-05 Saldo
+
+1. `GET /accounts/{accountId}` con `Authorization: Bearer <token>`.
+2. Esperado: 200. `balance` es el dinero disponible. `cvu` tiene 22 dígitos y `alias` tiene tres palabras.
+
+### SMK-06 Movimientos
+
+1. `GET /accounts/{accountId}/transactions`.
+2. Esperado: 200 y un arreglo. Con datos, el primero es el más reciente. `?limit=5` devuelve como máximo cinco.
+
+### SMK-07 Perfil
+
+1. `GET /users/{userId}` con el token del dueño.
+2. Esperado: 200, con nombre, apellido, DNI, email, teléfono, `cvu` y `alias`. No aparece `password`.
+
+### SMK-08 Tarjeta
+
+1. `POST /cards` con número de 16 dígitos, titular, vencimiento `MM/yy`, CVV y `type` `DEBIT` o `CREDIT`.
+2. `POST /accounts/{accountId}/cards` con `{ "cardId": <id> }`.
+3. `GET /cards/accounts/{accountId}/cards` y `GET /cards/accounts/{accountId}/cards/{cardId}`.
+4. `DELETE /cards/accounts/{accountId}/cards/{cardId}`.
+5. Esperado: 201 al crear y al asociar, 200 en el listado y el detalle, 200 al borrar con `Tarjeta eliminada`. La respuesta no incluye el CVV.
+
+### REG-10 Sin token o token vencido
+
+1. `GET /accounts/{accountId}` sin `Authorization`, y otra vez con un JWT vencido.
+2. Esperado: 403 en ambos.
+
+### REG-11 Cuenta de otro usuario
+
+1. Con el token de un usuario, `GET /accounts/{id}` de una cuenta que no es suya.
+2. Esperado: 403.
+
+### REG-12 Id inválido
+
+1. `GET /accounts/abc` y `GET /users/abc` con un token vigente.
+2. Esperado: 400.
+
+### REG-13 Edición de perfil y alias
+
+1. `PUT /users/{userId}` con nombre, apellido y teléfono válidos.
+2. `PATCH /accounts/{accountId}` con `{ "alias": "rio.mar.sol" }`.
+3. Esperado: 200 y los datos nuevos. Un alias que no son tres palabras responde 400. Un alias ya usado responde 409.
+
+### REG-14 Tarjeta en otra cuenta
+
+1. Asociar una tarjeta a la cuenta A.
+2. Con el dueño de la cuenta B, `POST /accounts/{cuentaB}/cards` con el mismo `cardId`.
+3. Esperado: 409.
+4. `GET /cards/accounts/{cuentaA}/cards/999999` responde 404.
+5. Borrar una tarjeta que no está en la cuenta responde 404.
+
+### REG-15 Error 500 en cuenta
+
+1. Con `account-service` detenido, `GET /accounts/{accountId}` con un token vigente.
+2. Esperado: 500 o 503, sin la clave de MySQL ni el secreto JWT en el cuerpo.
