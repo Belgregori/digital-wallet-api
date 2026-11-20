@@ -8,6 +8,7 @@ import com.digitalmoneyhouse.account.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.account.security.CurrentUser;
 import com.digitalmoneyhouse.account.security.JwtTokenService;
 import com.digitalmoneyhouse.account.service.AccountService;
+import com.digitalmoneyhouse.account.service.CardService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -40,6 +41,9 @@ class AccountControllerTest {
 
     @MockitoBean
     private AccountService accountService;
+
+    @MockitoBean
+    private CardService cardService;
 
     @MockitoBean
     private CurrentUser currentUser;
