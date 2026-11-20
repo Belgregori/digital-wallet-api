@@ -1,9 +1,11 @@
 package com.digitalmoneyhouse.account.service;
 
 import com.digitalmoneyhouse.account.entity.Account;
+import com.digitalmoneyhouse.account.entity.Transaction;
 import com.digitalmoneyhouse.account.exception.ForbiddenException;
 import com.digitalmoneyhouse.account.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.account.repository.AccountRepository;
+import com.digitalmoneyhouse.account.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -11,6 +13,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +28,9 @@ class AccountServiceTest {
 
     @Mock
     private AccountRepository accountRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
 
     @Mock
     private AccountIdentifierGenerator identifierGenerator;
@@ -68,6 +75,21 @@ class AccountServiceTest {
     }
 
     @Test
+    void listTransactionsKeepsNewestFirstAndAppliesLimit() {
+        when(accountRepository.findById(8L)).thenReturn(Optional.of(account()));
+        when(transactionRepository.findByAccountIdOrderByCreatedAtDesc(8L)).thenReturn(List.of(
+                transaction(3L, "mas nueva"),
+                transaction(2L, "media"),
+                transaction(1L, "mas vieja")));
+
+        var all = accountService.listTransactions(8L, "ana@example.com", null);
+        var latest = accountService.listTransactions(8L, "ana@example.com", 1);
+
+        assertEquals(List.of(3L, 2L, 1L), all.stream().map(item -> item.id()).toList());
+        assertEquals("mas nueva", latest.get(0).description());
+    }
+
+    @Test
     void getByIdReturnsNotFoundWhenMissing() {
         when(accountRepository.findById(8L)).thenReturn(Optional.empty());
 
@@ -90,6 +112,22 @@ class AccountServiceTest {
         account.setAlias("sol.luna.rio");
         account.setBalance(new BigDecimal("150.50"));
         return withId(account, 8L);
+    }
+
+    private Transaction transaction(Long id, String description) {
+        Transaction transaction = new Transaction();
+        transaction.setAccountId(8L);
+        transaction.setAmount(new BigDecimal("10.00"));
+        transaction.setCreatedAt(Instant.parse("2026-11-19T12:00:00Z"));
+        transaction.setDescription(description);
+        try {
+            var field = Transaction.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(transaction, id);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException(exception);
+        }
+        return transaction;
     }
 
     private Account withId(Account account, Long id) {

@@ -1,15 +1,18 @@
 package com.digitalmoneyhouse.account.service;
 
 import com.digitalmoneyhouse.account.dto.AccountDetailsResponse;
+import com.digitalmoneyhouse.account.dto.TransactionResponse;
 import com.digitalmoneyhouse.account.entity.Account;
 import com.digitalmoneyhouse.account.exception.ForbiddenException;
 import com.digitalmoneyhouse.account.exception.ResourceNotFoundException;
 import com.digitalmoneyhouse.account.exception.ValidationException;
 import com.digitalmoneyhouse.account.repository.AccountRepository;
+import com.digitalmoneyhouse.account.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 public class AccountService {
@@ -17,10 +20,15 @@ public class AccountService {
     private static final int MAX_GENERATION_ATTEMPTS = 10;
 
     private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
     private final AccountIdentifierGenerator identifierGenerator;
 
-    public AccountService(AccountRepository accountRepository, AccountIdentifierGenerator identifierGenerator) {
+    public AccountService(
+            AccountRepository accountRepository,
+            TransactionRepository transactionRepository,
+            AccountIdentifierGenerator identifierGenerator) {
         this.accountRepository = accountRepository;
+        this.transactionRepository = transactionRepository;
         this.identifierGenerator = identifierGenerator;
     }
 
@@ -43,12 +51,32 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AccountDetailsResponse getById(Long id, String email) {
+        return AccountDetailsResponse.from(ownedAccount(id, email));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransactionResponse> listTransactions(Long id, String email, Integer limit) {
+        if (limit != null && limit < 1) {
+            throw new ValidationException("El límite debe ser mayor a cero");
+        }
+        Account account = ownedAccount(id, email);
+        List<TransactionResponse> transactions = transactionRepository.findByAccountIdOrderByCreatedAtDesc(account.getId())
+                .stream()
+                .map(TransactionResponse::from)
+                .toList();
+        if (limit == null || limit >= transactions.size()) {
+            return transactions;
+        }
+        return transactions.subList(0, limit);
+    }
+
+    private Account ownedAccount(Long id, String email) {
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("La cuenta no existe"));
         if (!account.getOwnerEmail().equalsIgnoreCase(email)) {
             throw new ForbiddenException("No tenés permiso para ver esta cuenta");
         }
-        return AccountDetailsResponse.from(account);
+        return account;
     }
 
     private String uniqueCvu() {
