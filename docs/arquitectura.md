@@ -1,6 +1,6 @@
 # Arquitectura
 
-Digital Money House del Sprint 1 es un conjunto de servicios Spring Boot. Cada carpeta es un proyecto Maven propio. El cliente entra por el API Gateway. Eureka resuelve el nombre de cada servicio.
+Digital Money House es un conjunto de servicios Spring Boot. Cada carpeta es un proyecto Maven propio. El cliente entra por el API Gateway. Eureka resuelve el nombre de cada servicio.
 
 ## Diagrama de arquitectura
 
@@ -18,7 +18,9 @@ flowchart LR
     cliente --> gateway
     gateway -->|/users/**| users
     gateway -->|/auth/** y /user/logout| auth
-    users -->|registro y CVU/alias| dbUsers
+    gateway -->|/accounts/** y /cards/**| account
+    users -->|abre la cuenta| account
+    users -->|datos personales| dbUsers
     auth -->|POST /internal/credentials/verify| users
     users -. registro .-> eureka
     auth -. registro .-> eureka
@@ -69,12 +71,10 @@ flowchart TB
 
 ## Dueño de la cuenta
 
-`users-service` es el dueño de la identidad de la cuenta durante el Sprint 1: CVU, alias, saldo inicial en cero y el vínculo uno a uno con el usuario. Esa fila se crea en la misma transacción que el alta, así el registro no depende de otro servicio.
+`users-service` guarda los datos personales. Al registrarse llama a `account-service`, que crea la cuenta con CVU, alias y saldo inicial en cero. El id que vuelve en el alta es el de esa cuenta.
 
-`account-service` no duplica esa entidad. En el Sprint 2 va a ser el dueño de las operaciones financieras (movimientos de saldo, transacciones y tarjetas) y va a referenciar el id de cuenta que ya devolvió el registro. Así no hay que mudar la identidad de la cuenta ni partir el alta en dos bases.
+`account-service` es el dueño del saldo, de los movimientos, del alias y de las tarjetas. El perfil lee el CVU y el alias desde ahí.
 
 ## JWT en el gateway
 
-En el Sprint 1 el gateway no valida tokens. Las tres rutas públicas son el registro, el login y el logout. El logout valida el JWT dentro de `auth-service`: un token vencido, alterado o ya invalidado no cierra sesión ni queda en la blacklist.
-
-Cuando aparezcan endpoints protegidos, la validación del JWT se centraliza en `api-gateway`, antes de enrutar. Login, registro y la documentación OpenAPI siguen públicos. La firma, la expiración y la blacklist se resuelven una sola vez en el borde y los servicios dejan de repetir ese control.
+El gateway valida el JWT antes de enrutar `/accounts/**`, `/cards/**` y `/users/**`, salvo `POST /users/register`. Login y logout siguen públicos. Un token vencido o ausente responde 403. Cada servicio además comprueba que la cuenta o el usuario pertenezcan al email del token.
