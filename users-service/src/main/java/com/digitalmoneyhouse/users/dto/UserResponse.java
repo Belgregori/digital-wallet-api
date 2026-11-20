@@ -12,7 +12,7 @@ public record UserResponse(
         AccountResponse account
 ) {
 
-    public static UserResponse from(User user) {
+    public static UserResponse of(User user, AccountResponse account) {
         return new UserResponse(
                 user.getId(),
                 user.getFirstName(),
@@ -20,7 +20,7 @@ public record UserResponse(
                 user.getDni(),
                 user.getEmail(),
                 user.getPhoneNumber(),
-                AccountResponse.from(user.getAccount())
+                account
         );
     }
 }

@@ -1,4 +1,4 @@
-package com.digitalmoneyhouse.users.service;
+package com.digitalmoneyhouse.account.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
@@ -36,7 +36,7 @@ public class AccountIdentifierGenerator {
 
     public String generateCvu() {
         StringBuilder cvu = new StringBuilder(CVU_LENGTH);
-        for (int i = 0; i < CVU_LENGTH; i++) {
+        for (int index = 0; index < CVU_LENGTH; index++) {
             cvu.append(random.nextInt(10));
         }
         return cvu.toString();
@@ -51,15 +51,15 @@ public class AccountIdentifierGenerator {
     private static List<String> loadWords(ResourceLoader resourceLoader) throws IOException {
         var resource = resourceLoader.getResource("classpath:palabras.txt");
         try (var reader = new BufferedReader(new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-            List<String> words = reader.lines()
+            List<String> loaded = reader.lines()
                     .map(String::trim)
                     .filter(line -> !line.isEmpty())
                     .distinct()
                     .toList();
-            if (words.size() < ALIAS_WORD_COUNT) {
+            if (loaded.size() < ALIAS_WORD_COUNT) {
                 throw new IllegalStateException("palabras.txt debe contener al menos 3 palabras");
             }
-            return words;
+            return loaded;
         }
     }
 }

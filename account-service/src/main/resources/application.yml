@@ -24,6 +24,12 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
+jwt:
+  secret: ${JWT_SECRET}
+
+internal:
+  api-key: ${INTERNAL_API_KEY}
+
 springdoc:
   swagger-ui:
     enabled: true

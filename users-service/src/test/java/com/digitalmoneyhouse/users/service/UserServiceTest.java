@@ -1,16 +1,16 @@
 package com.digitalmoneyhouse.users.service;
 
+import com.digitalmoneyhouse.users.client.AccountProvisioning;
+import com.digitalmoneyhouse.users.dto.AccountResponse;
 import com.digitalmoneyhouse.users.dto.UserRegisterRequest;
 import com.digitalmoneyhouse.users.dto.UserResponse;
 import com.digitalmoneyhouse.users.entity.User;
 import com.digitalmoneyhouse.users.exception.UnauthorizedException;
 import com.digitalmoneyhouse.users.exception.ValidationException;
-import com.digitalmoneyhouse.users.repository.AccountRepository;
 import com.digitalmoneyhouse.users.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,10 +21,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,29 +33,25 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private AccountRepository accountRepository;
-
-    @Mock
-    private AccountIdentifierGenerator identifierGenerator;
+    private AccountProvisioning accountProvisioning;
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, accountRepository, identifierGenerator, passwordEncoder);
+        userService = new UserService(userRepository, accountProvisioning, passwordEncoder);
     }
 
     @Test
-    void registerSavesUserAndAccountAndStoresBcryptHash() {
-        when(identifierGenerator.generateCvu()).thenReturn("1234567890123456789012");
-        when(identifierGenerator.generateAlias()).thenReturn("sol.luna.rio");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+    void registerSavesUserAndAsksAccountServiceForTheWallet() {
+        when(userRepository.save(org.mockito.ArgumentMatchers.any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setId(1L);
-            user.getAccount().setId(2L);
             return user;
         });
+        when(accountProvisioning.openAccount(1L, "ana@example.com")).thenReturn(
+                new AccountResponse(2L, "1234567890123456789012", "sol.luna.rio", new BigDecimal("0.00")));
 
         UserResponse response = userService.register(request());
 
@@ -67,14 +61,12 @@ class UserServiceTest {
         assertEquals("1234567890123456789012", response.account().cvu());
         assertEquals("sol.luna.rio", response.account().alias());
         assertEquals(new BigDecimal("0.00"), response.account().balance());
+        verify(accountProvisioning).openAccount(1L, "ana@example.com");
 
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        var captor = org.mockito.ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
-        User saved = captor.getValue();
-        assertTrue(saved.getPassword().startsWith("$2a$"));
-        assertFalse(saved.getPassword().contains("secreta12"));
-        assertTrue(passwordEncoder.matches("secreta12", saved.getPassword()));
-        assertSame(saved, saved.getAccount().getUser());
+        assertTrue(captor.getValue().getPassword().startsWith("$2a$"));
+        assertFalse(captor.getValue().getPassword().contains("secreta12"));
     }
 
     @Test

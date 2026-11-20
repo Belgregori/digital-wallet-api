@@ -1,6 +1,5 @@
-# Sprint 1: /users/register, /auth/login y /user/logout son públicos.
-# /internal/** no se enruta. La validación centralizada del JWT en este gateway
-# queda para los endpoints protegidos de los próximos sprints (docs/arquitectura.md).
+# /users/register, /auth/login y /user/logout son públicos.
+# /internal/** no se enruta. El resto de /accounts y /users exige un JWT vigente.
 server:
   port: 8080
 
@@ -24,6 +23,10 @@ spring:
               uri: lb://auth-service
               predicates:
                 - Path=/user/logout
+            - id: account-service
+              uri: lb://account-service
+              predicates:
+                - Path=/accounts/**
 
 eureka:
   client:
@@ -31,3 +34,6 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
+
+jwt:
+  secret: ${JWT_SECRET}

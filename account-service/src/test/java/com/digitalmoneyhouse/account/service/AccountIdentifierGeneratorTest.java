@@ -1,4 +1,4 @@
-package com.digitalmoneyhouse.users.service;
+package com.digitalmoneyhouse.account.service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
